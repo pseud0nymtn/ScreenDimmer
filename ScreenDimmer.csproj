@@ -12,7 +12,6 @@
 
 	<ItemGroup>
 	  <None Remove="icons8-lichtdimmer-96.ico" />
-	  <None Remove="Red.ico" />
 	</ItemGroup>
 	
 	<ItemGroup>
@@ -24,7 +23,6 @@
 	
 	<ItemGroup>
 	  <Resource Include="icons8-lichtdimmer-96.ico" />
-	  <Resource Include="Red.ico" />
 	</ItemGroup>
 		
 	<ItemGroup>
