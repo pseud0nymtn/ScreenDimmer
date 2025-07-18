@@ -1,0 +1,25 @@
+﻿{
+  "MonitorConfigs": [
+    {
+      "MonitorIndex": 0,
+      "Brightness": 0.2,
+      "LabelName": "Left",
+      "IsEnabled": true,
+      "BackgroundColorHex": "#000000"
+    },
+    {
+      "MonitorIndex": 1,
+      "Brightness": 0.5,
+      "LabelName": "Right",
+      "IsEnabled": true,
+      "BackgroundColorHex": "#000000"
+    },
+    {
+      "MonitorIndex": 2,
+      "Brightness": 0.7,
+      "LabelName": "Middle",
+      "IsEnabled": true,
+      "BackgroundColorHex": "#000000"
+    }
+  ]
+}
