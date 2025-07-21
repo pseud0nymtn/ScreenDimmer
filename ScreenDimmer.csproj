@@ -11,7 +11,11 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <None Remove=".gitattributes" />
+	  <None Remove=".gitignore" />
 	  <None Remove="icons8-lichtdimmer-96.ico" />
+	  <None Remove="LICENSE.txt" />
+	  <None Remove="README.md" />
 	</ItemGroup>
 	
 	<ItemGroup>
