@@ -23,6 +23,7 @@ namespace ScreenDimmer
             //create the notifyicon (it's a resource declared in NotifyIconResources.xaml
             notifyIcon = (TaskbarIcon)FindResource("NotifyIcon");
             notifyIcon.ForceCreate();
+            notifyIcon.ContextMenu.DataContext = notifyIcon.DataContext;
         }
 
         protected override void OnExit(ExitEventArgs e)

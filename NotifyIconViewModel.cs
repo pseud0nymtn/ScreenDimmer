@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -26,23 +27,20 @@ internal static class NativeMethods
     public static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, MonitorEnumDelegate lpfnEnum, IntPtr dwData);
 }
 
-
 public partial class NotifyIconViewModel : ObservableObject
 {
 
     private const string configFileName = "config.json";
     private List<MainWindow> windows = new();
 
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ShowWindowCommand))]
-    public bool canExecuteShowWindow = true;
+    private ObservableCollection<MenuItemDTO> _menuItems = new ObservableCollection<MenuItemDTO>();
+    public ObservableCollection<MenuItemDTO> MenuItems
+    {
+        get => _menuItems;
+        private set => SetProperty(ref _menuItems, value);
+    }
 
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(HideWindowCommand))]
-    public bool canExecuteHideWindow;
-
-    [ObservableProperty]
-    private ObservableCollection<MenuItem> menuItems = new ObservableCollection<MenuItem>();
+    public ICommand ExitApplication { get; } = new RelayCommand(ExitApplicationExecute);
 
     public NotifyIconViewModel()
     {
@@ -58,7 +56,7 @@ public partial class NotifyIconViewModel : ObservableObject
                     continue;
 
                 var win = new MainWindow();
-                menuItems.Add(GetMenuItemFromConfig(mon, win));
+                MenuItems.Add(GetMenuItemFromConfig(mon, win));
                 win.ApplyMonitorSettings(mon, screens);
                 win.Show();
                 windows.Add(win);
@@ -71,48 +69,10 @@ public partial class NotifyIconViewModel : ObservableObject
             windows.Add(win);
             win.Show();
         }
-
-        // Menüpunkt "Beenden" hinzufügen und an ExitApplication binden
-        var exitMenuItem = new MenuItem
-        {
-            Header = "Beenden",
-            Command = ExitApplicationCommand
-        };
-        menuItems.Add(exitMenuItem);
-    }
-
-        
-
-
-    /// <summary>
-    /// Shows a window, if none is already open.
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanExecuteShowWindow))]
-    public void ShowWindow()
-    {
-        Application.Current.MainWindow ??= new MainWindow();
-        Application.Current.MainWindow.Show(disableEfficiencyMode: true);
-        CanExecuteShowWindow = false;
-        CanExecuteHideWindow = true;
-    }
-
-    /// <summary>
-    /// Hides the main window. This command is only enabled if a window is open.
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanExecuteHideWindow))]
-    public void HideWindow()
-    {
-        Application.Current.MainWindow.Hide(enableEfficiencyMode: true);
-        CanExecuteShowWindow = true;
-        CanExecuteHideWindow = false;
     }
 
 
-    /// <summary>
-    /// Shuts down the application.
-    /// </summary>
-    [RelayCommand]
-    public void ExitApplication()
+    private static void ExitApplicationExecute()
     {
         Application.Current.Shutdown();
     }
@@ -154,21 +114,45 @@ public partial class NotifyIconViewModel : ObservableObject
         return screens;
     }
 
-    private MenuItem GetMenuItemFromConfig(Config config, Window win)
+    private MenuItemDTO GetMenuItemFromConfig(Config config, Window win)
     {
-        var menuItem = new MyMenuItem()
+        var parentDto = new MenuItemDTO()
         {
             Header = config.LabelName,
-            Brightness = config.Brightness * 100,
+            MonitorIndex = config.MonitorIndex,
+            BackgroundColorHex = config.BackgroundColorHex
         };
-        menuItem.BrightnessChanged += (e =>
+
+        var childDto = new MenuItemDTO
+        {
+            Header = "Helligkeit",
+            Brightness = config.Brightness * 100,
+            SliderScrollCommand = new RelayCommand<MouseWheelEventArgs>(e =>
+            {
+                if (e == null || e.Source == null)
+                    return;
+
+                var slider = (e.Source as Slider);
+
+                if (slider == null)
+                    return;
+
+                // e.Delta ist +120 pro Tick nach oben, –120 nach unten
+                slider.Value += slider.SmallChange * Math.Round((double)e.Delta / 120);
+                e.Handled = true;
+            })
+        };
+
+        childDto.BrightnessChanged += (e) =>
         {
             if (e != null)
             {
                 win.Dispatcher.Invoke(() => win.Opacity = 1 - (e / 100));
             }
-        });
+        };
 
-        return menuItem;       
+        parentDto.Children.Add(childDto);
+
+        return parentDto;
     }
 }
