@@ -22,13 +22,9 @@
                                 SmallChange="1"
                                 IsSnapToTickEnabled="True"
                                 Value="{Binding Brightness, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                                <i:Interaction.Triggers>
-                                    <i:EventTrigger EventName="PreviewMouseWheel">
-                                        <i:InvokeCommandAction
-                                            Command="{Binding SliderScrollCommand}"
-                                            PassEventArgsToCommand="True"/>
-                                    </i:EventTrigger>
-                                </i:Interaction.Triggers>
+                                <i:Interaction.Behaviors>
+                                    <local:MouseWheelSliderBehavior Amount="1" />
+                                </i:Interaction.Behaviors>
                             </Slider>
                             <Label Content="{Binding Brightness, StringFormat='Brightness: {0:F0}'}"
                                     HorizontalAlignment="Center"/>
