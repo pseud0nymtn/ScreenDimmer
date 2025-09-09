@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
@@ -12,13 +13,18 @@ namespace ScreenDimmer
         {
             try
             {
-                if (File.Exists(ConfigFileName))
-                {
-                    var json = File.ReadAllText(ConfigFileName);
-                    return JsonConvert.DeserializeObject<ConfigRoot>(json);
-                }
+                if (!File.Exists(ConfigFileName))
+                    return null;
+
+                // Use FileStream + StreamReader to reduce large string allocations for big files
+                using var fs = File.OpenRead(ConfigFileName);
+                using var sr = new StreamReader(fs);
+                using var jsonReader = new JsonTextReader(sr);
+                var serializer = JsonSerializer.CreateDefault();
+                var root = serializer.Deserialize<ConfigRoot>(jsonReader);
+                return root;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Fehlerbehandlung ggf. an den Aufrufer weitergeben
             }

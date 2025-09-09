@@ -12,6 +12,8 @@ using CommunityToolkit.Mvvm.Input;
 using ControlzEx.Standard;
 using H.NotifyIcon;
 using Newtonsoft.Json;
+using System.Windows.Interop;
+using System.Runtime.InteropServices;
 using Application = System.Windows.Application;
 
 namespace ScreenDimmer;
@@ -28,13 +30,17 @@ internal static class NativeMethods
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     public static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, MonitorEnumDelegate lpfnEnum, IntPtr dwData);
+
+    // Add SetWindowPos for efficient z-ordering without toggling Topmost
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 }
 
 public partial class NotifyIconViewModel : ObservableObject
 {
 
     private const string configFileName = "config.json";
-    private List<MainWindow> windows = new();
+    private readonly List<MainWindow> windows = new();
 
     private ObservableCollection<MenuItemDTO> _menuItems = new ObservableCollection<MenuItemDTO>();
     public ObservableCollection<MenuItemDTO> MenuItems
@@ -47,10 +53,18 @@ public partial class NotifyIconViewModel : ObservableObject
 
     private readonly DispatcherTimer _topmostTimer;
 
+    // SetWindowPos constants
+    private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOACTIVATE = 0x0010;
+
     public NotifyIconViewModel()
     {
         var config = ConfigService.LoadConfig();
         var screens = ScreenService.GetAllScreens();
+
+        var windowsToShow = new List<MainWindow>();
 
         if (config?.MonitorConfigs != null && config.MonitorConfigs.Count > 0)
         {
@@ -68,8 +82,8 @@ public partial class NotifyIconViewModel : ObservableObject
                 var win = new MainWindow();
                 MenuItems.Add(GetMenuItemFromConfig(mon, win));
                 win.ApplyMonitorSettings(mon, screens);
-                win.Show();
                 windows.Add(win);
+                windowsToShow.Add(win);
             }
         }
         else
@@ -89,7 +103,7 @@ public partial class NotifyIconViewModel : ObservableObject
                 win.ApplyMonitorSettings(fallbackConfig, screens);
             }
             windows.Add(win);
-            win.Show();
+            windowsToShow.Add(win);
         }
 
         // Exit-Button hinzufügen
@@ -101,7 +115,11 @@ public partial class NotifyIconViewModel : ObservableObject
             Command = ExitApplication
         });
 
-        // Verwende DispatcherTimer statt einer ständig laufenden Task-Schleife.
+        // Show windows after configuration to reduce UI thrash
+        foreach (var w in windowsToShow)
+            w.Show();
+
+        // Use SetWindowPos to keep windows on top without toggling Topmost
         _topmostTimer = new DispatcherTimer(DispatcherPriority.Normal)
         {
             Interval = TimeSpan.FromSeconds(2)
@@ -110,9 +128,15 @@ public partial class NotifyIconViewModel : ObservableObject
         {
             foreach (var window in windows)
             {
-                // Kurzer Toggle, um Fenster in den Vordergrund zu bringen. Läuft im UI-Thread, geringer Overhead.
-                window.Topmost = false;
-                window.Topmost = true;
+                try
+                {
+                    var hwnd = new WindowInteropHelper(window).Handle;
+                    NativeMethods.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                }
+                catch
+                {
+                    // ignore per-window failures
+                }
             }
         };
         _topmostTimer.Start();
@@ -139,17 +163,12 @@ public partial class NotifyIconViewModel : ObservableObject
             Brightness = config.Brightness * 100,
             SliderScrollCommand = new RelayCommand<MouseWheelEventArgs>(e =>
             {
-                if (e == null || e.Source == null)
-                    return;
-
-                var slider = (e.Source as Slider);
-
-                if (slider == null)
-                    return;
-
-                // e.Delta ist +120 pro Tick nach oben, –120 nach unten
-                slider.Value += slider.SmallChange * Math.Round((double)e.Delta / 120);
-                e.Handled = true;
+                if (e?.Source is Slider slider)
+                {
+                    // e.Delta ist +120 pro Tick nach oben, –120 nach unten
+                    slider.Value += slider.SmallChange * Math.Round((double)e.Delta / 120);
+                    e.Handled = true;
+                }
             })
         };
 
@@ -157,7 +176,8 @@ public partial class NotifyIconViewModel : ObservableObject
         {
             if (e != null)
             {
-                win.Dispatcher.Invoke(() => win.Opacity = 1 - (e / 100));
+                // Use BeginInvoke to avoid potential re-entrancy/blocking issues
+                win.Dispatcher.BeginInvoke(() => win.Opacity = 1 - (e / 100));
             }
         };
 

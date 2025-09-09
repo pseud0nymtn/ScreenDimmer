@@ -2,12 +2,15 @@
 
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
-		<TargetFrameworks>net9.0-windows</TargetFrameworks>
+		<!-- Use the windows-targeted TFM variant to match WPF requirements -->
+		<TargetFrameworks>net10.0-windows7.0</TargetFrameworks>
 		<UseWPF>true</UseWPF>
 		<LangVersion>preview</LangVersion>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<EnableWindowsTargeting>true</EnableWindowsTargeting>
+		<!-- Disable SDK auto-generation of assembly attributes because this repo contains a custom AssemblyInfo.cs -->
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 	</PropertyGroup>
 
 	<ItemGroup>
