@@ -1,9 +1,12 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ControlzEx.Standard;
@@ -42,16 +45,23 @@ public partial class NotifyIconViewModel : ObservableObject
 
     public ICommand ExitApplication { get; } = new RelayCommand(ExitApplicationExecute);
 
+    private readonly DispatcherTimer _topmostTimer;
+
     public NotifyIconViewModel()
     {
-        var config = LoadConfig();
+        var config = ConfigService.LoadConfig();
+        var screens = ScreenService.GetAllScreens();
 
         if (config?.MonitorConfigs != null && config.MonitorConfigs.Count > 0)
         {
-            var screens = GetAllScreens();
             for (int i = 0; i < config.MonitorConfigs.Count; i++)
             {
                 var mon = config.MonitorConfigs[i];
+
+                // Skip disabled monitor entries
+                if (!mon.IsEnabled)
+                    continue;
+
                 if (mon.MonitorIndex < 0 || mon.MonitorIndex >= screens.Count)
                     continue;
 
@@ -66,52 +76,52 @@ public partial class NotifyIconViewModel : ObservableObject
         {
             // Fallback: Ein Fenster auf dem Hauptmonitor
             var win = new MainWindow();
+            if (screens.Count > 0)
+            {
+                var fallbackConfig = new Config
+                {
+                    MonitorIndex = 0,
+                    Brightness = 0.0,
+                    BackgroundColorHex = "#000000",
+                    LabelName = "Hauptmonitor",
+                    IsEnabled = true
+                };
+                win.ApplyMonitorSettings(fallbackConfig, screens);
+            }
             windows.Add(win);
             win.Show();
         }
+
+        // Exit-Button hinzufügen
+        MenuItems.Add(new MenuItemDTO
+        {
+            Header = "Beenden",
+            IsExitbutton = true,
+            IsSubMenu = false,
+            Command = ExitApplication
+        });
+
+        // Verwende DispatcherTimer statt einer ständig laufenden Task-Schleife.
+        _topmostTimer = new DispatcherTimer(DispatcherPriority.Normal)
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
+        _topmostTimer.Tick += (s, e) =>
+        {
+            foreach (var window in windows)
+            {
+                // Kurzer Toggle, um Fenster in den Vordergrund zu bringen. Läuft im UI-Thread, geringer Overhead.
+                window.Topmost = false;
+                window.Topmost = true;
+            }
+        };
+        _topmostTimer.Start();
     }
 
 
     private static void ExitApplicationExecute()
     {
         Application.Current.Shutdown();
-    }
-
-    private ConfigRoot? LoadConfig()
-    {
-        try
-        {
-            if (File.Exists(configFileName))
-            {
-                var json = File.ReadAllText(configFileName);
-                return JsonConvert.DeserializeObject<ConfigRoot>(json);
-            }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show("Fehler beim Laden der Konfiguration: " + ex.Message);
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// Gibt die Arbeitsbereiche aller angeschlossenen Monitore als Rect-Liste zurück.
-    /// </summary>
-    private static List<Rect> GetAllScreens()
-    {
-        // Win32-API: EnumDisplayMonitors
-        var screens = new List<Rect>();
-        NativeMethods.EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero,
-            (IntPtr hMonitor, IntPtr hdcMonitor, ref NativeMethods.RECT lprcMonitor, IntPtr dwData) =>
-            {
-                screens.Add(new Rect(
-                    lprcMonitor.Left,
-                    lprcMonitor.Top,
-                    lprcMonitor.Right - lprcMonitor.Left,
-                    lprcMonitor.Bottom - lprcMonitor.Top));
-                return true;
-            }, IntPtr.Zero);
-        return screens;
     }
 
     private MenuItemDTO GetMenuItemFromConfig(Config config, Window win)

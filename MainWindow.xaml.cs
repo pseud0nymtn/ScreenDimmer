@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -10,11 +13,7 @@ namespace ScreenDimmer
         public MainWindow()
         {
             InitializeComponent();
-
-            this.Loaded += (s, e) =>
-            {
-                MakeWindowClickThrough();
-            };
+            Loaded += (_, _) => MakeWindowClickThrough();
         }
 
         private void MakeWindowClickThrough()
@@ -26,24 +25,25 @@ namespace ScreenDimmer
 
         public void ApplyMonitorSettings(Config mon, List<Rect> screens)
         {
-            var screen = screens.ElementAt(mon.MonitorIndex);
+            if (mon.MonitorIndex < 0 || mon.MonitorIndex >= screens.Count)
+                return;
 
-            this.WindowStartupLocation = WindowStartupLocation.Manual;
-            this.Left = screen.Left;
-            this.Top = screen.Top;
-            this.Width = screen.Width;
-            this.Height = screen.Height;
+            var screen = screens[mon.MonitorIndex];
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = screen.Left;
+            Top = screen.Top;
+            Width = screen.Width;
+            Height = screen.Height;
+            Opacity = 1 - mon.Brightness;
 
-            this.Opacity = 1 - mon.Brightness;
-
-            try
+            if (!string.IsNullOrWhiteSpace(mon.BackgroundColorHex) &&
+                ColorConverter.ConvertFromString(mon.BackgroundColorHex) is Color color)
             {
-                var color = (Color)ColorConverter.ConvertFromString(mon.BackgroundColorHex);
-                this.Background = new SolidColorBrush(color);
+                Background = new SolidColorBrush(color);
             }
-            catch
+            else
             {
-                this.Background = Brushes.Black;
+                Background = Brushes.Black;
             }
         }
 

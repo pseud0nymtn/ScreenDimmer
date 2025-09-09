@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -12,31 +8,28 @@ namespace ScreenDimmer
 {
     public class MenuItemDTO : ObservableObject
     {
-        public event Action<double> BrightnessChanged;
+        public event Action<double>? BrightnessChanged;
 
-
-        public string Header { get; set; }
+        public bool IsExitbutton { get; set; } = false;
+        public bool IsSubMenu { get; set; } = true;
+        public string Header { get; set; } = string.Empty;
+        public int MonitorIndex { get; set; }
+        public string BackgroundColorHex { get; set; } = "#000000";
+        public RelayCommand<MouseWheelEventArgs>? SliderScrollCommand { get; set; }
+        public ObservableCollection<MenuItemDTO> Children { get; } = new();
+        public ICommand? Command { get; set; }
 
         private double _brightness;
-        public double Brightness 
-        { 
-            get
-            {                 
-                return _brightness;
-            }
+        public double Brightness
+        {
+            get => _brightness;
             set
-            {   if (_brightness != value)
+            {
+                if (SetProperty(ref _brightness, value))
                 {
-                    _brightness = value;
                     BrightnessChanged?.Invoke(_brightness);
-                    OnPropertyChanged(nameof(Brightness));
                 }
             }
         }
-        public int MonitorIndex { get; set; }
-        public string BackgroundColorHex { get; set; }
-        public RelayCommand<MouseWheelEventArgs> SliderScrollCommand { get; set; }
-        public ObservableCollection<MenuItemDTO> Children { get; }
-            = new ObservableCollection<MenuItemDTO>();
     }
 }

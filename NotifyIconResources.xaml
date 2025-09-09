@@ -6,14 +6,21 @@
     xmlns:local="clr-namespace:ScreenDimmer"
     xmlns:i="http://schemas.microsoft.com/xaml/behaviors">
 
+    <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+
     <ContextMenu x:Key="SysTrayMenu"
                ItemsSource="{Binding MenuItems}">
         <ContextMenu.ItemTemplate>
             <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                <TextBlock Text="{Binding Header}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                    <!-- Fix: Use a MultiBinding with a Converter if you need to bind Visibility to IsSubMenu -->
+                    <TextBlock Text="{Binding Header}" 
+                               Visibility="{Binding IsSubMenu, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Button Content="{Binding Header}" Command="{Binding Command}" Visibility="{Binding IsExitbutton, Converter={StaticResource BoolToVisibilityConverter}}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                </StackPanel>
                 <HierarchicalDataTemplate.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Orientation="Vertical" Margin="8">
+                        <StackPanel Orientation="Vertical" Margin="8" Visibility="{Binding IsSubMenu, Converter={StaticResource BoolToVisibilityConverter}}">
                             <Slider
                                 Width="150"
                                 Minimum="0"
@@ -34,7 +41,6 @@
             </HierarchicalDataTemplate>
         </ContextMenu.ItemTemplate>
     </ContextMenu>
-
 
     <tb:TaskbarIcon
         x:Key="NotifyIcon"
